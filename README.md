@@ -24,6 +24,17 @@ This API is designed for **easy integration** across all teams.
 
 ---
 
+# **Dago Coffee Sales/Order API – Interface Table**
+
+| **Interface Name**      | **Method** | **Description**                                                                 | **Data Exchanged**                                                                                           |
+| ----------------------- | ---------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| **/api/createOrder**    | POST       | Receives customer order details from the Sales/Cart subsystem.                  | Cart ID, product list (SKU, qty, price), total price breakdown, currency, channel.                           |
+| **/api/confirmPayment** | POST       | Receives payment confirmation from the Finance/Payment subsystem.               | Order ID, transaction ID, amount, payment method, payment status, paid timestamp.                            |
+| **/api/sendToKitchen**  | POST       | Sends paid order information to the Kitchen subsystem for beverage preparation. | Order ID, idempotency key. Returns a kitchen ticket ID. Also triggers permanent saving into `sales.json`.    |
+| **/api/reportSales**    | GET        | Provides daily or filtered sales reports for Finance and Management.            | Total revenue, total orders, payment method, transaction filter, item list, kitchen ticket, pagination data. |
+
+---
+
 # 📌 **Related Subsystems (Based on Business Process Diagram)**
 
 | Team                       | Subsystem                              | Description                                              |
