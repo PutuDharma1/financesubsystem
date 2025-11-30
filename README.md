@@ -2,7 +2,7 @@
 
 ### System Integration Final Project
 
-**Author:** Group 1 (Leonard, Abi, Gabby) - Information Systems, Sampoerna University
+**Author:** Group 1 (Leonard, Abi, Gabby)
 **Subsystem:** *Sales & Order*
 
 ---
