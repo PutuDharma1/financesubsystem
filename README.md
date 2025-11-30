@@ -2,8 +2,8 @@
 
 ### System Integration Final Project
 
-**Author:** Group 1 (Leonard, Abi, Gabby)
-**Subsystem:** *Sales & Order*
+* **Author:** Group 1 (Leonard, Abi, Gabby)
+* **Subsystem:** *Sales & Order*
 
 ---
 
