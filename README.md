@@ -149,6 +149,7 @@ Creates a new order from the cart (Sales subsystem).
   "createdAt": "2025-11-30T17:22:15Z"
 }
 ```
+This **orderId** must be used by **Finance** and **Kitchen**.
 
 ---
 
@@ -179,6 +180,7 @@ To be called by **Finance subsystem** or payment gateway.
   "orderStatus": "PAID"
 }
 ```
+Only **PAID** orders can be sent to the **kitchen**.
 
 ---
 
