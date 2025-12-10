@@ -1,4 +1,4 @@
-// ----- DRINK DATA (you can change images later) -----
+// ----- DRINK DATA -----
 const DRINKS = [
   { id: "LATTE", name: "Latte", price: 25000, image: "/ui/img/latte.png", qty: 0 },
   { id: "CAPPUCCINO", name: "Cappuccino", price: 27000, image: "/ui/img/cappuccino.png", qty: 0 },
@@ -8,32 +8,52 @@ const DRINKS = [
   { id: "MACCHIATO", name: "Macchiato", price: 22000, image: "/ui/img/macchiato.png", qty: 0 },
 ];
 
+// ----- VIEWS -----
 const VIEWS = {
   home: document.getElementById("homeView"),
   order: document.getElementById("orderView"),
   report: document.getElementById("reportView"),
+  finance: document.getElementById("financeView"), // New View
 };
 
+// ----- ELEMENTS -----
 const drinksGrid = document.getElementById("drinksGrid");
 const totalAmountEl = document.getElementById("totalAmount");
 
+// Modals
 const paymentModal = document.getElementById("paymentModal");
 const cashModal = document.getElementById("cashModal");
 const qrisModal = document.getElementById("qrisModal");
 const passwordModal = document.getElementById("passwordModal");
 
+// New Modals for Finance
+const procurementModal = document.getElementById("procurementModal");
+const invoiceModal = document.getElementById("invoiceModal");
+const paySupplierModal = document.getElementById("paySupplierModal");
+
+// Password Input
 const reportPasswordInput = document.getElementById("reportPasswordInput");
 const passwordError = document.getElementById("passwordError");
 
+// Report Elements
 const reportSummary = document.getElementById("reportSummary");
 const reportTableBody = document.getElementById("reportTableBody");
 
+// Finance Elements
+const finRevenue = document.getElementById("finRevenue");
+const finMaterialCount = document.getElementById("finMaterialCount");
+const materialLogBody = document.getElementById("materialLogBody");
+
+// Toast
 const toastEl = document.getElementById("toast");
 
-// Sales Report Password
+// Shared Password for Report & Finance
 const PASSWORD = "12345";
 
-// ----- Helpers -----
+// Track what we are unlocking with password ('report' or 'finance')
+let passwordTarget = "report"; 
+
+// ----- HELPERS -----
 
 function showView(name) {
   Object.values(VIEWS).forEach((v) => v.classList.remove("active-view"));
@@ -64,7 +84,7 @@ function resetCart() {
   updateTotal();
 }
 
-// ----- Render drinks grid -----
+// ----- SALES LOGIC -----
 
 function renderDrinks() {
   drinksGrid.innerHTML = "";
@@ -90,7 +110,6 @@ function renderDrinks() {
 
     const qtyRow = document.createElement("div");
     qtyRow.className = "quantity-row";
-
     const label = document.createElement("div");
     label.textContent = "Qty";
     qtyRow.appendChild(label);
@@ -135,7 +154,7 @@ function updateTotal() {
   totalAmountEl.textContent = formatIDR(total);
 }
 
-// ----- API calls -----
+// ----- API CALLS (SALES) -----
 
 async function createOrder() {
   const items = DRINKS.filter((d) => d.qty > 0).map((d) => ({
@@ -144,20 +163,13 @@ async function createOrder() {
     qty: d.qty,
     unitPrice: d.price,
   }));
-
   const subtotal = items.reduce((s, item) => s + item.qty * item.unitPrice, 0);
 
   const payload = {
-    orderId: null, // client ref not needed
+    orderId: null,
     cartId: "CART-WEB",
     productList: items,
-    totalPrice: {
-      subtotal,
-      discount: 0,
-      tax: 0,
-      serviceFee: 0,
-      grandTotal: subtotal,
-    },
+    totalPrice: { subtotal, grandTotal: subtotal },
     currency: "IDR",
     channel: "WEB",
   };
@@ -167,12 +179,8 @@ async function createOrder() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-
-  if (!res.ok) {
-    throw new Error("Create order failed");
-  }
-
-  return res.json(); // { orderId, status, createdAt }
+  if (!res.ok) throw new Error("Create order failed");
+  return res.json();
 }
 
 async function confirmPayment(orderId, amount, method) {
@@ -185,18 +193,13 @@ async function confirmPayment(orderId, amount, method) {
     status: "CAPTURED",
     paidAt: now,
   };
-
   const res = await fetch("/api/confirmPayment", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-
-  if (!res.ok) {
-    throw new Error("Confirm payment failed");
-  }
-
-  return res.json(); // { orderId, orderStatus }
+  if (!res.ok) throw new Error("Confirm payment failed");
+  return res.json();
 }
 
 async function sendToKitchen(orderId, amount, method) {
@@ -205,40 +208,27 @@ async function sendToKitchen(orderId, amount, method) {
     sku: d.id,
     qty: d.qty,
   }));
-
   const payload = {
     orderId,
     cartId: "CART-WEB",
-    payment: {
-      status: "CAPTURED",
-      method,
-      transactionId: "TXN-" + Date.now(),
-    },
+    payment: { status: "CAPTURED", method, transactionId: "TXN-" + Date.now() },
     items,
     eventType: "FULFILLMENT",
     fulfilledAt: now,
     idempotencyKey: orderId + "-F1",
   };
-
   const res = await fetch("/api/sendToKitchen", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-
-  if (!res.ok) {
-    throw new Error("Send to kitchen failed");
-  }
-
+  if (!res.ok) throw new Error("Send to kitchen failed");
   return res.json();
 }
 
 async function loadReport() {
-  // No query = all sales
   const res = await fetch("/api/reportSales");
-  if (!res.ok) {
-    throw new Error("Failed to load report");
-  }
+  if (!res.ok) throw new Error("Failed to load report");
   const data = await res.json();
   renderReport(data);
 }
@@ -252,11 +242,9 @@ function renderReport(data) {
   reportTableBody.innerHTML = "";
   (data.rows || []).forEach((row) => {
     const tr = document.createElement("tr");
-
     const itemsText = (row.items || [])
       .map((item) => `${item.qty}x ${item.name || item.sku}`)
       .join(", ");
-
     tr.innerHTML = `
       <td>${row.orderId}</td>
       <td>${row.paidAt || ""}</td>
@@ -269,25 +257,146 @@ function renderReport(data) {
   });
 }
 
-// ----- Payment flow -----
+// ----- FINANCE LOGIC -----
+
+async function loadFinanceDashboard() {
+  // 1. Get Revenue via proxy
+  try {
+    const resSales = await fetch("/api/getSalesReport");
+    const salesData = await resSales.json();
+    const rev = salesData.summary ? salesData.summary.revenue : 0;
+    finRevenue.textContent = formatIDR(rev);
+  } catch (e) {
+    console.error(e);
+    finRevenue.textContent = "Error";
+  }
+
+  // 2. Get Raw Material Logs
+  try {
+    const resMat = await fetch("/api/getRawMaterialLog");
+    const logs = await resMat.json();
+    
+    finMaterialCount.textContent = logs.length + " Batches";
+    materialLogBody.innerHTML = "";
+    
+    logs.slice().reverse().forEach(log => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${log.batchId || "-"}</td>
+        <td>${log.sku || "-"}</td>
+        <td>${log.quantity || 0}</td>
+        <td>${log.timestamp || "-"}</td>
+      `;
+      materialLogBody.appendChild(tr);
+    });
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+// API Calls for Forms
+
+async function submitProcurement() {
+  const supplierId = document.getElementById("procSupplier").value;
+  const cost = parseInt(document.getElementById("procCost").value) || 0;
+  
+  if(!supplierId || cost <= 0) {
+    showToast("Invalid Input");
+    return;
+  }
+
+  const payload = {
+    procurementId: "PROC-" + Date.now(),
+    supplierId: supplierId,
+    items: [{ sku: "GENERAL-STOCK", qty: 1, cost: cost }], // Simplified
+    totalCost: cost,
+    timestamp: new Date().toISOString()
+  };
+
+  try {
+    await fetch("/api/recordProcurement", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    showToast("Procurement Recorded!");
+    closeModal(procurementModal);
+    loadFinanceDashboard(); // Refresh
+  } catch(e) {
+    showToast("Error recording");
+  }
+}
+
+async function submitInvoice() {
+  const supplierId = document.getElementById("invSupplier").value;
+  const amount = parseInt(document.getElementById("invAmount").value) || 0;
+  const dateVal = document.getElementById("invDueDate").value;
+
+  if(!supplierId || amount <= 0) return showToast("Invalid Input");
+
+  const payload = {
+    supplierId: supplierId,
+    details: [{ description: "General Invoice", amount: amount }],
+    totalAmount: amount,
+    dueDate: dateVal
+  };
+
+  try {
+    await fetch("/api/createPaymentInvoice", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    showToast("Invoice Created!");
+    closeModal(invoiceModal);
+  } catch(e) {
+    showToast("Error creating invoice");
+  }
+}
+
+async function submitPaySupplier() {
+  const suppId = document.getElementById("paySuppId").value;
+  const procId = document.getElementById("payProcId").value;
+  const amount = parseInt(document.getElementById("payAmount").value) || 0;
+
+  if(!suppId || amount <= 0) return showToast("Invalid Input");
+
+  const payload = {
+    supplierId: suppId,
+    procurementId: procId,
+    amount: amount,
+    reference: "BANK-" + Date.now()
+  };
+
+  try {
+    await fetch("/api/paySupplier", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    showToast("Payment Recorded!");
+    closeModal(paySupplierModal);
+  } catch(e) {
+    showToast("Payment Failed");
+  }
+}
+
+
+// ----- PAYMENT FLOW (SALES) -----
 
 async function handleCashPaid() {
   try {
     const total = DRINKS.reduce((sum, d) => sum + d.qty * d.price, 0);
     if (total === 0) {
-      showToast("Please select at least one drink.");
+      showToast("Cart is empty");
       return;
     }
-
     closeModal(cashModal);
     closeModal(paymentModal);
-    showToast("Processing order...");
+    showToast("Processing...");
 
     const order = await createOrder();
     await confirmPayment(order.orderId, total, "CASH");
     await sendToKitchen(order.orderId, total, "CASH");
 
-    showToast("Order sent to kitchen!");
+    showToast("Order Sent to Kitchen!");
     resetCart();
     showView("home");
   } catch (err) {
@@ -297,16 +406,16 @@ async function handleCashPaid() {
 }
 
 function handleCashCancel() {
-  // Cancel = delete cart data
   resetCart();
   closeModal(cashModal);
   closeModal(paymentModal);
-  showToast("Order cancelled");
+  showToast("Cancelled");
 }
 
-// ----- Password flow -----
+// ----- PASSWORD FLOW -----
 
-function openPasswordModal() {
+function openPasswordModal(target) {
+  passwordTarget = target;
   passwordError.textContent = "";
   reportPasswordInput.value = "";
   openModal(passwordModal);
@@ -318,56 +427,43 @@ async function handlePasswordSubmit() {
     return;
   }
   closeModal(passwordModal);
-  showView("report");
-  try {
-    await loadReport();
-  } catch (err) {
-    console.error(err);
-    showToast("Failed to load report");
+  
+  if (passwordTarget === "report") {
+    showView("report");
+    loadReport();
+  } else if (passwordTarget === "finance") {
+    showView("finance");
+    loadFinanceDashboard();
   }
 }
 
-// ----- Event bindings -----
+// ----- EVENT BINDINGS -----
 
-document.getElementById("btnCreateOrder").addEventListener("click", () => {
-  showView("order");
-});
+// Home Navigation
+document.getElementById("btnCreateOrder").addEventListener("click", () => showView("order"));
+document.getElementById("btnReportSales").addEventListener("click", () => openPasswordModal("report"));
+document.getElementById("btnFinanceDashboard").addEventListener("click", () => openPasswordModal("finance"));
 
-document.getElementById("btnReportSales").addEventListener("click", () => {
-  openPasswordModal();
-});
+// Back Buttons
+document.getElementById("btnBackFromOrder").addEventListener("click", () => showView("home"));
+document.getElementById("btnBackFromReport").addEventListener("click", () => showView("home"));
+document.getElementById("btnBackFromFinance").addEventListener("click", () => showView("home"));
 
-document.getElementById("btnBackFromOrder").addEventListener("click", () => {
-  showView("home");
-});
-
-document.getElementById("btnBackFromReport").addEventListener("click", () => {
-  showView("home");
-});
-
+// Sales Buttons
 document.getElementById("btnSubmitOrder").addEventListener("click", () => {
   const total = DRINKS.reduce((s, d) => s + d.qty * d.price, 0);
-  if (total === 0) {
-    showToast("Please select at least one drink.");
-    return;
-  }
+  if (total === 0) return showToast("Empty Cart");
   openModal(paymentModal);
 });
-
-document.getElementById("btnClosePaymentModal").addEventListener("click", () => {
-  closeModal(paymentModal);
-});
-
+document.getElementById("btnClosePaymentModal").addEventListener("click", () => closeModal(paymentModal));
 document.getElementById("btnPayCash").addEventListener("click", () => {
   closeModal(paymentModal);
   openModal(cashModal);
 });
-
 document.getElementById("btnPayQris").addEventListener("click", () => {
   closeModal(paymentModal);
   openModal(qrisModal);
 });
-
 document.getElementById("btnCashPaid").addEventListener("click", handleCashPaid);
 document.getElementById("btnCashCancel").addEventListener("click", handleCashCancel);
 document.getElementById("btnQrisBack").addEventListener("click", () => {
@@ -375,12 +471,26 @@ document.getElementById("btnQrisBack").addEventListener("click", () => {
   openModal(paymentModal);
 });
 
+// Password Buttons
 document.getElementById("btnSubmitPassword").addEventListener("click", handlePasswordSubmit);
-document.getElementById("btnCancelPassword").addEventListener("click", () => {
-  closeModal(passwordModal);
-});
+document.getElementById("btnCancelPassword").addEventListener("click", () => closeModal(passwordModal));
 
-// ----- Init -----
+// Finance Action Buttons
+document.getElementById("btnOpenProcurement").addEventListener("click", () => openModal(procurementModal));
+document.getElementById("btnOpenInvoice").addEventListener("click", () => openModal(invoiceModal));
+document.getElementById("btnOpenPaySupplier").addEventListener("click", () => openModal(paySupplierModal));
+
+// Finance Form Buttons
+document.getElementById("btnSubmitProcurement").addEventListener("click", submitProcurement);
+document.getElementById("btnCloseProcurement").addEventListener("click", () => closeModal(procurementModal));
+
+document.getElementById("btnSubmitInvoice").addEventListener("click", submitInvoice);
+document.getElementById("btnCloseInvoice").addEventListener("click", () => closeModal(invoiceModal));
+
+document.getElementById("btnSubmitPaySupplier").addEventListener("click", submitPaySupplier);
+document.getElementById("btnClosePaySupplier").addEventListener("click", () => closeModal(paySupplierModal));
+
+// ----- INIT -----
 renderDrinks();
 updateTotal();
 showView("home");

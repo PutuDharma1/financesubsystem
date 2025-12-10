@@ -61,5 +61,22 @@
       }
     ],
     "kitchenTicketId": "KT-0001"
+  },
+  {
+    "orderId": "ORD-2025-12-10-00001",
+    "paidAt": "2025-12-10T08:53:39.742Z",
+    "cartId": "CART-WEB",
+    "amount": 50000,
+    "method": "CASH",
+    "status": "PAID",
+    "items": [
+      {
+        "sku": "LATTE",
+        "name": "Latte",
+        "qty": 2,
+        "unitPrice": 25000
+      }
+    ],
+    "kitchenTicketId": "KT-0001"
   }
 ]

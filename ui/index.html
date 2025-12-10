@@ -3,13 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dago Coffee – Sales & Order</title>
+  <title>Dago Coffee – Integrated System</title>
   <link rel="stylesheet" href="/ui/style.css" />
 </head>
 <body>
   <div id="app">
 
-    <!-- HOME VIEW -->
     <section id="homeView" class="view active-view">
       <div class="center-box">
         <div class="logo-container">
@@ -18,11 +17,11 @@
         <div class="home-buttons">
           <button id="btnCreateOrder" class="primary-btn">Create Order</button>
           <button id="btnReportSales" class="secondary-btn">Report Sales</button>
+          <button id="btnFinanceDashboard" class="secondary-btn">Finance Dashboard</button>
         </div>
       </div>
     </section>
 
-    <!-- CREATE ORDER VIEW -->
     <section id="orderView" class="view">
       <header class="top-bar">
         <button id="btnBackFromOrder" class="link-btn">← Back</button>
@@ -31,8 +30,7 @@
 
       <main class="order-main">
         <div class="drinks-grid" id="drinksGrid">
-          <!-- Cards injected by JS -->
-        </div>
+          </div>
       </main>
 
       <footer class="order-footer">
@@ -42,7 +40,6 @@
       </footer>
     </section>
 
-    <!-- REPORT VIEW -->
     <section id="reportView" class="view">
       <header class="top-bar">
         <button id="btnBackFromReport" class="link-btn">← Back</button>
@@ -63,15 +60,52 @@
             </tr>
           </thead>
           <tbody id="reportTableBody">
-            <!-- Rows injected by JS -->
-          </tbody>
+            </tbody>
         </table>
       </main>
     </section>
 
-    <!-- MODALS -->
+    <section id="financeView" class="view">
+      <header class="top-bar">
+        <button id="btnBackFromFinance" class="link-btn">← Back</button>
+        <div class="top-title">Finance Dashboard</div>
+      </header>
 
-    <!-- Payment choice modal -->
+      <main class="report-main">
+        <div style="display: flex; gap: 16px; margin-bottom: 24px;">
+          <div style="background: #111; padding: 16px; border-radius: 8px; flex: 1; border: 1px solid #333;">
+            <div style="color: #ccc; font-size: 13px;">Total Sales Revenue</div>
+            <div id="finRevenue" style="font-size: 20px; font-weight: bold; margin-top: 4px;">IDR 0</div>
+          </div>
+          <div style="background: #111; padding: 16px; border-radius: 8px; flex: 1; border: 1px solid #333;">
+            <div style="color: #ccc; font-size: 13px;">Raw Material Consumed</div>
+            <div id="finMaterialCount" style="font-size: 20px; font-weight: bold; margin-top: 4px;">0 Batches</div>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 24px; display: flex; gap: 10px; flex-wrap: wrap;">
+          <button id="btnOpenProcurement" class="primary-btn small">+ Record Procurement</button>
+          <button id="btnOpenInvoice" class="secondary-btn small">+ Create Invoice</button>
+          <button id="btnOpenPaySupplier" class="secondary-btn small">Pay Supplier</button>
+        </div>
+
+        <h3 style="margin-bottom: 12px; font-size: 16px;">Kitchen Consumption Log</h3>
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>Batch ID</th>
+              <th>SKU</th>
+              <th>Quantity</th>
+              <th>Timestamp</th>
+            </tr>
+          </thead>
+          <tbody id="materialLogBody">
+            </tbody>
+        </table>
+      </main>
+    </section>
+
+
     <div id="paymentModal" class="modal hidden">
       <div class="modal-content">
         <h2>Choose Payment Method</h2>
@@ -83,7 +117,6 @@
       </div>
     </div>
 
-    <!-- Cash confirm modal -->
     <div id="cashModal" class="modal hidden">
       <div class="modal-content">
         <h2>Cash Payment</h2>
@@ -95,7 +128,6 @@
       </div>
     </div>
 
-    <!-- QRIS info modal -->
     <div id="qrisModal" class="modal hidden">
       <div class="modal-content">
         <h2>QRIS</h2>
@@ -104,7 +136,6 @@
       </div>
     </div>
 
-    <!-- Password modal for report -->
     <div id="passwordModal" class="modal hidden">
       <div class="modal-content">
         <h2>Enter Password</h2>
@@ -117,7 +148,44 @@
       </div>
     </div>
 
-    <!-- Toast / small popup -->
+    <div id="procurementModal" class="modal hidden">
+      <div class="modal-content">
+        <h2>Record Procurement</h2>
+        <input type="text" id="procSupplier" placeholder="Supplier ID (e.g. SUP-01)" style="width:100%; margin-bottom:8px; padding:8px; background:#000; color:#fff; border:1px solid #555; border-radius:4px;">
+        <input type="number" id="procCost" placeholder="Total Cost (IDR)" style="width:100%; margin-bottom:8px; padding:8px; background:#000; color:#fff; border:1px solid #555; border-radius:4px;">
+        <div class="modal-buttons">
+          <button id="btnSubmitProcurement" class="primary-btn">Save</button>
+          <button id="btnCloseProcurement" class="secondary-btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="invoiceModal" class="modal hidden">
+      <div class="modal-content">
+        <h2>Create Invoice</h2>
+        <input type="text" id="invSupplier" placeholder="Supplier ID" style="width:100%; margin-bottom:8px; padding:8px; background:#000; color:#fff; border:1px solid #555; border-radius:4px;">
+        <input type="number" id="invAmount" placeholder="Amount (IDR)" style="width:100%; margin-bottom:8px; padding:8px; background:#000; color:#fff; border:1px solid #555; border-radius:4px;">
+        <input type="date" id="invDueDate" style="width:100%; margin-bottom:8px; padding:8px; background:#000; color:#fff; border:1px solid #555; border-radius:4px;">
+        <div class="modal-buttons">
+          <button id="btnSubmitInvoice" class="primary-btn">Create</button>
+          <button id="btnCloseInvoice" class="secondary-btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="paySupplierModal" class="modal hidden">
+      <div class="modal-content">
+        <h2>Pay Supplier</h2>
+        <input type="text" id="paySuppId" placeholder="Supplier ID" style="width:100%; margin-bottom:8px; padding:8px; background:#000; color:#fff; border:1px solid #555; border-radius:4px;">
+        <input type="text" id="payProcId" placeholder="Procurement/Invoice Ref" style="width:100%; margin-bottom:8px; padding:8px; background:#000; color:#fff; border:1px solid #555; border-radius:4px;">
+        <input type="number" id="payAmount" placeholder="Amount (IDR)" style="width:100%; margin-bottom:8px; padding:8px; background:#000; color:#fff; border:1px solid #555; border-radius:4px;">
+        <div class="modal-buttons">
+          <button id="btnSubmitPaySupplier" class="primary-btn">Pay</button>
+          <button id="btnClosePaySupplier" class="secondary-btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
     <div id="toast" class="toast hidden"></div>
 
   </div>
