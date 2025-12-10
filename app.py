@@ -77,12 +77,19 @@ def ui_files(filename):
 def home():
     return {
         "status": "running",
-        "service": "Dago Coffee Sales & Order Subsystem",
+        "service": "Dago Coffee Integrated System (Sales + Finance)",
         "endpoints": [
             "/api/createOrder",
             "/api/confirmPayment",
             "/api/sendToKitchen",
-            "/api/reportSales"
+            "/api/reportSales",
+            "/api/receivePaymentGateway",
+            "/api/getSalesReport",
+            "/api/generateFinanceReport",
+            "/api/createPaymentInvoice",
+            "/api/getRawMaterialLog",
+            "/api/recordProcurement",
+            "/api/paySupplier"
         ],
         "ui": "/ui"
     }
@@ -272,6 +279,195 @@ def report_sales():
         "page": page,
         "hasMore": page < total_pages
     })
+
+# =====================================================================
+# FINANCE SUBSYSTEM (ADDED BELOW)
+# =====================================================================
+
+FINANCE_FILE = os.path.join(DATA_DIR, "finance_data.json")
+
+# ----------------------
+# Finance Helpers
+# ----------------------
+def load_finance():
+    default_data = {
+        "paymentGatewayLogs": [],
+        "financeReports": [],
+        "invoices": [],
+        "rawMaterialLogs": [],
+        "procurementLogs": [],
+        "supplierPayments": []
+    }
+    if not os.path.exists(FINANCE_FILE):
+        return default_data
+    try:
+        with open(FINANCE_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            # Ensure keys exist
+            for key in default_data:
+                if key not in data:
+                    data[key] = []
+            return data
+    except Exception:
+        return default_data
+
+def save_finance(data):
+    with open(FINANCE_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def get_utc_now():
+    return datetime.utcnow().isoformat(timespec="seconds") + "Z"
+
+# ----------------------
+# Finance Variables
+# ----------------------
+invoice_counter = itertools.count(1)
+
+def generate_invoice_id():
+    seq = next(invoice_counter)
+    return f"INV-{seq:05d}"
+
+# ----------------------
+# POST /api/receivePaymentGateway
+# ----------------------
+@app.route("/api/receivePaymentGateway", methods=["POST"])
+def receive_payment_gateway():
+    payload = request.get_json(force=True)
+    finance_data = load_finance()
+
+    log_entry = {
+        "transactionId": payload.get("transactionId"),
+        "orders": payload.get("orders", []),
+        "amount": payload.get("amount"),
+        "method": payload.get("method"),
+        "settledAt": payload.get("settledAt"),
+        "reference": payload.get("reference"),
+        "receivedAt": get_utc_now()
+    }
+
+    finance_data["paymentGatewayLogs"].append(log_entry)
+    save_finance(finance_data)
+
+    return jsonify({
+        "status": "RECEIVED",
+        "data": log_entry
+    }), 201
+
+# ----------------------
+# GET /api/getSalesReport
+# ----------------------
+@app.route("/api/getSalesReport", methods=["GET"])
+def get_sales_report():
+    # Proxies to the existing Sales API internally
+    return report_sales()
+
+# ----------------------
+# GET /api/generateFinanceReport
+# ----------------------
+@app.route("/api/generateFinanceReport", methods=["GET"])
+def generate_finance_report():
+    finance_data = load_finance()
+
+    summary = {
+        "totalPayments": len(finance_data.get("paymentGatewayLogs", [])),
+        "procurementCount": len(finance_data.get("procurementLogs", [])),
+        "supplierPayments": len(finance_data.get("supplierPayments", [])),
+        "rawMaterialLogCount": len(finance_data.get("rawMaterialLogs", []))
+    }
+
+    report = {
+        "generatedAt": get_utc_now(),
+        "salesSummary": summary,
+        "rawMaterialLogs": finance_data.get("rawMaterialLogs", [])
+    }
+
+    finance_data["financeReports"].append(report)
+    save_finance(finance_data)
+
+    return jsonify(report)
+
+# ----------------------
+# POST /api/createPaymentInvoice
+# ----------------------
+@app.route("/api/createPaymentInvoice", methods=["POST"])
+def create_payment_invoice():
+    payload = request.get_json(force=True)
+    finance_data = load_finance()
+
+    new_invoice_id = generate_invoice_id()
+    created_at = get_utc_now()
+
+    invoice = {
+        "invoiceId": new_invoice_id,
+        "supplierId": payload.get("supplierId"),
+        "details": payload.get("details", []),
+        "totalAmount": payload.get("totalAmount"),
+        "dueDate": payload.get("dueDate"),
+        "createdAt": created_at
+    }
+
+    finance_data["invoices"].append(invoice)
+    save_finance(finance_data)
+
+    return jsonify(invoice), 201
+
+# ----------------------
+# GET /api/getRawMaterialLog
+# ----------------------
+@app.route("/api/getRawMaterialLog", methods=["GET"])
+def get_raw_material_log():
+    finance_data = load_finance()
+    logs = finance_data.get("rawMaterialLogs", [])
+    return jsonify(logs)
+
+# ----------------------
+# POST /api/recordProcurement
+# ----------------------
+@app.route("/api/recordProcurement", methods=["POST"])
+def record_procurement():
+    payload = request.get_json(force=True)
+    finance_data = load_finance()
+
+    procurement = {
+        "procurementId": payload.get("procurementId"),
+        "supplierId": payload.get("supplierId"),
+        "items": payload.get("items", []),
+        "totalCost": payload.get("totalCost"),
+        "timestamp": payload.get("timestamp"),
+        "recordedAt": get_utc_now()
+    }
+
+    finance_data["procurementLogs"].append(procurement)
+    save_finance(finance_data)
+
+    return jsonify({
+        "status": "RECORDED",
+        "data": procurement
+    }), 201
+
+# ----------------------
+# POST /api/paySupplier
+# ----------------------
+@app.route("/api/paySupplier", methods=["POST"])
+def pay_supplier():
+    payload = request.get_json(force=True)
+    finance_data = load_finance()
+
+    payment = {
+        "supplierId": payload.get("supplierId"),
+        "procurementId": payload.get("procurementId"),
+        "amount": payload.get("amount"),
+        "reference": payload.get("reference"),
+        "paidAt": get_utc_now()
+    }
+
+    finance_data["supplierPayments"].append(payment)
+    save_finance(finance_data)
+
+    return jsonify({
+        "status": "PAID",
+        "data": payment
+    }), 201
 
 if __name__ == "__main__":
     app.run(debug=True)
